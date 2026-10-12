@@ -8,8 +8,8 @@ export default defineConfig({
             entry: "src/main.ts",
             userscript: {
                 namespace: "https://github.com/e6nlaq/monkey-template",
-                match: [],
-                name: "Monkey Template",
+                match: ["https://atcoder.jp/*"],
+                name: "AtCoder Nickname",
                 grant: [],
                 author: "e6nlaq",
                 copyright: "(C) 2026 e6nlaq",
