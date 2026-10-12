@@ -1,0 +1,132 @@
+name: Release Userscript
+
+on:
+    workflow_dispatch:
+        inputs:
+            version:
+                description: "Release version (e.g. 1.2.0)"
+                required: true
+                type: string
+            release_notes:
+                description: "Release notes"
+                required: false
+                type: string
+
+permissions:
+    contents: write
+
+concurrency:
+    group: userscript-release
+    cancel-in-progress: false
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.event.repository.default_branch }}
+                  fetch-depth: 0
+
+            - name: Setup mise and tools
+              uses: jdx/mise-action@v3
+
+            - name: Show versions
+              run: |
+                  mise --version
+                  bun --version
+
+            - name: Install dependencies
+              run: bun install --frozen-lockfile
+
+            - name: Validate version
+              env:
+                  VERSION: ${{ inputs.version }}
+              run: |
+                  if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+                    echo "Invalid version: $VERSION"
+                    exit 1
+                  fi
+
+                  if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+                    echo "Tag v$VERSION already exists"
+                    exit 1
+                  fi
+
+            - name: Update package.json version
+              env:
+                  VERSION: ${{ inputs.version }}
+              run: |
+                  bun -e '
+                    const fs = require("node:fs");
+                    const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+                    pkg.version = process.env.VERSION;
+                    fs.writeFileSync(
+                      "package.json",
+                      JSON.stringify(pkg, null, 2) + "\n"
+                    );
+                  '
+
+                  # package.json と Bun の lockfile を同期
+                  bun install --lockfile-only
+                  bunx oxfmt package.json
+
+            - name: Determine artifact filename
+              id: artifact
+              run: |
+                  NAME=$(bun -e '
+                    const pkg = require("./package.json");
+                    console.log(
+                      pkg.name.replace(/^@/, "").replace(/\//g, "-") + ".user.js"
+                    );
+                  ')
+
+                  echo "filename=$NAME" >> "$GITHUB_OUTPUT"
+                  echo "Artifact: dist/$NAME"
+
+            - name: Build userscript
+              run: bun run build
+
+            - name: Verify build output
+              env:
+                  FILE: ${{ steps.artifact.outputs.filename }}
+              run: test -s "dist/$FILE"
+
+            - name: Commit release files
+              env:
+                  VERSION: ${{ inputs.version }}
+                  BRANCH: ${{ github.event.repository.default_branch }}
+                  FILE: ${{ steps.artifact.outputs.filename }}
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email \
+                    "41898282+github-actions[bot]@users.noreply.github.com"
+
+                  git add package.json bun.lock
+
+                  if ! git diff --cached --quiet; then
+                    git commit -m "chore: release v${VERSION}"
+                    git push origin "HEAD:${BRANCH}"
+                  fi
+
+            - name: Create GitHub Release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  VERSION: ${{ inputs.version }}
+                  NOTES: ${{ inputs.release_notes }}
+                  FILE: ${{ steps.artifact.outputs.filename }}
+              run: |
+                  if [ -n "$NOTES" ]; then
+                    printf '%s\n' "$NOTES" > release-notes.md
+                    gh release create "v${VERSION}" \
+                      "dist/$FILE" \
+                      --title "v${VERSION}" \
+                      --notes-file release-notes.md
+                  else
+                    gh release create "v${VERSION}" \
+                      "dist/$FILE" \
+                      --title "v${VERSION}" \
+                      --generate-notes
+                  fi

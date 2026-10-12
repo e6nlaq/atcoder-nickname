@@ -1,0 +1,26 @@
+{
+  "name": "atcoder-nickname",
+  "version": "1.0.0",
+  "private": true,
+  "description": "user-script template",
+  "license": "MIT",
+  "author": "e6nlaq",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "bun check && bun lint && vite build",
+    "preview": "vite preview",
+    "lint": "oxlint",
+    "format": "oxfmt"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
+    "lefthook": "^2.2.1",
+    "oxfmt": "^0.72.0",
+    "oxlint": "^1.87.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vite-plugin-monkey": "^8.1.1"
+  }
+}
