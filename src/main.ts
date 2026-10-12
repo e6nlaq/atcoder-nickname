@@ -14,6 +14,10 @@ const MAX_NICKNAME_LENGTH = 50;
 
 const ICON_CLASS = "ac-nick-edit-icon";
 const VISUAL_CLASS = "ac-custom-nick-visual";
+const MARK_CLASS = "ac-custom-nick-mark";
+
+// ニックネーム設定済みユーザーの末尾に付ける印
+const NICKNAME_MARK = "*";
 
 // 元の名前要素を非表示にしたことを示す印
 const HIDDEN_ATTR = "data-nick-hidden";
@@ -44,6 +48,12 @@ style.textContent = `
             max-width: 150px;
             overflow: hidden;
             text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .${MARK_CLASS} {
+            display: inline-block;
+            vertical-align: bottom;
             white-space: nowrap;
         }
     `;
@@ -119,7 +129,10 @@ function getUsername(link: HTMLAnchorElement): string | null {
 // ========================================
 
 function isVisual(node: Node): boolean {
-    return node instanceof HTMLElement && node.classList.contains(VISUAL_CLASS);
+    return (
+        node instanceof HTMLElement &&
+        (node.classList.contains(VISUAL_CLASS) || node.classList.contains(MARK_CLASS))
+    );
 }
 
 function normalizedText(nodes: Node[]): string {
@@ -210,10 +223,12 @@ function updateUserLink(link: HTMLAnchorElement, username: string, nickname: str
     }
 
     const oldVisual = parent.querySelector<HTMLSpanElement>(`:scope > .${VISUAL_CLASS}`);
+    const oldMark = parent.querySelector<HTMLSpanElement>(`:scope > .${MARK_CLASS}`);
 
     // ニックネーム解除: 元の表示に戻す
     if (!nickname) {
         oldVisual?.remove();
+        oldMark?.remove();
 
         for (const element of nameElements) {
             if (element.hasAttribute(HIDDEN_ATTR)) {
@@ -230,14 +245,17 @@ function updateUserLink(link: HTMLAnchorElement, username: string, nickname: str
     // 既に正しい状態なら何もしない(MutationObserver の無限ループ防止)
     if (
         oldVisual &&
+        oldMark &&
         allHidden &&
         oldVisual.textContent === nickname &&
-        oldVisual.getAttribute("data-nickname-username") === username
+        oldVisual.getAttribute("data-nickname-username") === username &&
+        oldVisual.nextElementSibling === oldMark
     ) {
         return;
     }
 
     oldVisual?.remove();
+    oldMark?.remove();
 
     // 非表示にする前に、先頭の名前要素の見た目を取得してコピーする
     const nickSpan = document.createElement("span");
@@ -247,13 +265,23 @@ function updateUserLink(link: HTMLAnchorElement, username: string, nickname: str
     nickSpan.textContent = nickname;
     nickSpan.setAttribute("data-nickname-username", username);
 
+    // 「*」は長いニックネームの省略表示(…)で隠れないよう、別要素にする
+    const markSpan = document.createElement("span");
+
+    copyAppearance(nameElements[0], markSpan);
+    markSpan.classList.add(MARK_CLASS);
+    markSpan.textContent = NICKNAME_MARK;
+
     for (const element of nameElements) {
         element.style.setProperty("display", "none", "important");
         element.setAttribute(HIDDEN_ATTR, "true");
     }
 
-    // 最後の名前要素の直後に置いて、元の位置を保つ
-    nameElements[nameElements.length - 1].insertAdjacentElement("afterend", nickSpan);
+    // 最後の名前要素の直後に「ニックネーム → *」の順で置く
+    const lastName = nameElements[nameElements.length - 1];
+
+    lastName.insertAdjacentElement("afterend", nickSpan);
+    nickSpan.insertAdjacentElement("afterend", markSpan);
 }
 
 function updateAllMatchingUsers(username: string, nickname: string): void {
