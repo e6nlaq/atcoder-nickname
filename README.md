@@ -7,12 +7,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Built with Bun](https://img.shields.io/badge/Built%20with-Bun-fbf0df?style=flat&logo=bun)](https://bun.sh/)
 ![GitHub Release](https://img.shields.io/github/v/release/e6nlaq/atcoder-nickname?logo=github)
-[![Greasy Fork Version](https://img.shields.io/greasyfork/v/?logo=greasyfork&color=green)](https://greasyfork.org/ja/scripts/)
-![Greasy Fork Downloads](https://img.shields.io/greasyfork/dt/?label=Total%20Installs)
+[![Greasy Fork Version](https://img.shields.io/greasyfork/v/599815-atcoder-nickname?logo=greasyfork&color=green)](https://greasyfork.org/ja/scripts/599815-atcoder-nickname)
+![Greasy Fork Downloads](https://img.shields.io/greasyfork/dt/599815-atcoder-nickname?label=Total%20Installs)
 
 </div>
 
 ---
+
+https://greasyfork.org/ja/scripts/599815-atcoder-nickname
 
 AtCoder の順位表やユーザーページなどに表示されるユーザー名に、自分だけに見えるニックネームを付けるユーザースクリプトです。
 
@@ -27,6 +29,8 @@ AtCoder の順位表やユーザーページなどに表示されるユーザー
 ## インストール
 
 ユーザースクリプトを動かすには、[Tampermonkey](https://www.tampermonkey.net/) などのユーザースクリプトマネージャーが必要です。
+
+[Greasy Fork](https://greasyfork.org/ja/scripts/599815-atcoder-nickname)にてインストールできます。
 
 ## 使い方
 
