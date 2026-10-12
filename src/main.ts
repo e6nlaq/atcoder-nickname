@@ -12,9 +12,13 @@ interface IconTarget {
 const STORAGE_KEY = "atcoder_nicknames";
 const MAX_NICKNAME_LENGTH = 50;
 
-const APPLIED_ATTR = "data-nicknamed-dom-applied";
 const ICON_CLASS = "ac-nick-edit-icon";
 const VISUAL_CLASS = "ac-custom-nick-visual";
+
+// 元の名前要素を非表示にしたことを示す印
+const HIDDEN_ATTR = "data-nick-hidden";
+// 素のテキストノードを包んだ span の印
+const TEXT_WRAP_ATTR = "data-nick-text-wrap";
 
 // ========================================
 // CSS
@@ -37,11 +41,9 @@ style.textContent = `
         }
 
         .${VISUAL_CLASS} {
-            display: inline-block;
             max-width: 150px;
             overflow: hidden;
             text-overflow: ellipsis;
-            vertical-align: bottom;
             white-space: nowrap;
         }
     `;
@@ -112,51 +114,146 @@ function getUsername(link: HTMLAnchorElement): string | null {
     return match ? match[1] : null;
 }
 
-function getOriginalSpan(link: HTMLAnchorElement): HTMLSpanElement | null {
-    const spans = link.querySelectorAll<HTMLSpanElement>('span[class^="user-"]');
+// ========================================
+// 元のユーザー名ノードの取得
+// ========================================
 
-    for (const span of spans) {
-        if (span.textContent?.trim() === getUsername(link)) {
-            return span;
+function isVisual(node: Node): boolean {
+    return node instanceof HTMLElement && node.classList.contains(VISUAL_CLASS);
+}
+
+function normalizedText(nodes: Node[]): string {
+    return nodes
+        .map((node) => node.textContent ?? "")
+        .join("")
+        .replace(/\s+/g, "");
+}
+
+/**
+ * リンク内の「ユーザー名を表示している部分」を返す。
+ * - 単一 span / 文字ごとに分割された span / 素のテキストノード に対応
+ * - 王冠画像など、テキストを持たない要素は対象外
+ * - 自作のニックネーム要素は除外
+ * - ラッパー要素が1つだけの場合は、その中を探す
+ */
+function getNameNodes(root: HTMLElement, username: string): Node[] | null {
+    const candidates = Array.from(root.childNodes).filter((node) => {
+        if (isVisual(node)) {
+            return false;
         }
+
+        return (node.textContent ?? "").trim() !== "";
+    });
+
+    if (candidates.length === 0) {
+        return null;
+    }
+
+    if (normalizedText(candidates) === username) {
+        return candidates;
+    }
+
+    if (candidates.length === 1 && candidates[0] instanceof HTMLElement) {
+        return getNameNodes(candidates[0], username);
     }
 
     return null;
 }
 
+/** テキストノードは style を当てられないので、span で包んで要素にする */
+function toElements(nodes: Node[]): HTMLElement[] {
+    return nodes.map((node) => {
+        if (node instanceof HTMLElement) {
+            return node;
+        }
+
+        const wrapper = document.createElement("span");
+
+        wrapper.setAttribute(TEXT_WRAP_ATTR, "true");
+        node.parentNode?.replaceChild(wrapper, node);
+        wrapper.appendChild(node);
+
+        return wrapper;
+    });
+}
+
 // ========================================
-// ニックネーム表示の更新
+// ニックネーム表示の更新(冪等)
 // ========================================
 
-function updateUserLink(link: HTMLAnchorElement, username: string, nickname: string): void {
-    const originalSpan = getOriginalSpan(link);
+function copyAppearance(from: HTMLElement, to: HTMLElement): void {
+    to.className = from.className;
 
-    const oldVisual = link.querySelector<HTMLSpanElement>(`.${VISUAL_CLASS}`);
+    // インライン style(自由色の color / background-clip: text など)を引き継ぐ
+    const inline = from.getAttribute("style");
 
-    if (oldVisual) {
-        oldVisual.remove();
+    if (inline) {
+        to.setAttribute("style", inline);
     }
 
+    // 元要素の display 指定(自分で付けた none など)は引き継がない
+    to.style.removeProperty("display");
+}
+
+function updateUserLink(link: HTMLAnchorElement, username: string, nickname: string): void {
+    const nameNodes = getNameNodes(link, username);
+
+    if (!nameNodes) {
+        return;
+    }
+
+    const nameElements = toElements(nameNodes);
+    const parent = nameElements[0]?.parentElement;
+
+    if (!parent) {
+        return;
+    }
+
+    const oldVisual = parent.querySelector<HTMLSpanElement>(`:scope > .${VISUAL_CLASS}`);
+
+    // ニックネーム解除: 元の表示に戻す
     if (!nickname) {
-        if (originalSpan) {
-            originalSpan.style.removeProperty("display");
+        oldVisual?.remove();
+
+        for (const element of nameElements) {
+            if (element.hasAttribute(HIDDEN_ATTR)) {
+                element.style.removeProperty("display");
+                element.removeAttribute(HIDDEN_ATTR);
+            }
         }
 
         return;
     }
 
-    if (originalSpan) {
-        originalSpan.style.setProperty("display", "none", "important");
+    const allHidden = nameElements.every((element) => element.hasAttribute(HIDDEN_ATTR));
+
+    // 既に正しい状態なら何もしない(MutationObserver の無限ループ防止)
+    if (
+        oldVisual &&
+        allHidden &&
+        oldVisual.textContent === nickname &&
+        oldVisual.getAttribute("data-nickname-username") === username
+    ) {
+        return;
     }
 
+    oldVisual?.remove();
+
+    // 非表示にする前に、先頭の名前要素の見た目を取得してコピーする
     const nickSpan = document.createElement("span");
 
-    nickSpan.className = originalSpan?.className ?? "";
+    copyAppearance(nameElements[0], nickSpan);
     nickSpan.classList.add(VISUAL_CLASS);
     nickSpan.textContent = nickname;
     nickSpan.setAttribute("data-nickname-username", username);
 
-    link.appendChild(nickSpan);
+    for (const element of nameElements) {
+        element.style.setProperty("display", "none", "important");
+        element.setAttribute(HIDDEN_ATTR, "true");
+    }
+
+    // 最後の名前要素の直後に置いて、元の位置を保つ
+    nameElements[nameElements.length - 1].insertAdjacentElement("afterend", nickSpan);
 }
 
 function updateAllMatchingUsers(username: string, nickname: string): void {
@@ -168,9 +265,6 @@ function updateAllMatchingUsers(username: string, nickname: string): void {
         }
 
         updateUserLink(link, username, nickname);
-
-        // 表示処理が完了したことを記録
-        link.setAttribute(APPLIED_ATTR, "true");
     });
 }
 
@@ -292,26 +386,17 @@ function applyNicknames(): void {
             return;
         }
 
-        const originalSpan = getOriginalSpan(link);
-
-        // 元のユーザー名がまだ存在しない場合は、
-        // 処理済みにせず、次回のDOM更新時に再試行する。
-        if (!originalSpan) {
+        // 名前がまだ描画されていないリンクは、次回のDOM更新時に再試行する
+        if (!getNameNodes(link, username)) {
             return;
         }
 
-        // 1. ニックネーム表示の適用
-        //    アイコンの設置先がなくても独立して実行する。
-        if (link.getAttribute(APPLIED_ATTR) !== "true") {
-            updateUserLink(link, username, nicknames[username] ?? "");
-
-            // 表示処理が完了した後にのみマークする。
-            link.setAttribute(APPLIED_ATTR, "true");
-        }
+        // 1. ニックネーム表示
+        //    冪等なので毎回呼んでよい。再描画で元に戻った場合も復元される。
+        updateUserLink(link, username, nicknames[username] ?? "");
 
         // 2. 鉛筆アイコンの挿入
-        //    表示処理済みかどうかにかかわらず毎回確認する。
-        //    挿入先が後から追加された場合にも対応する。
+        //    挿入先が後から追加された場合にも対応するため、毎回確認する。
         const target = findIconTarget(link);
 
         if (!target) {
