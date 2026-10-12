@@ -2,7 +2,7 @@
     "name": "atcoder-nickname",
     "version": "1.0.0",
     "private": true,
-    "description": "user-script template",
+    "description": "AtCoderにニックネーム機能を追加するUserScript",
     "license": "MIT",
     "author": "e6nlaq",
     "type": "module",

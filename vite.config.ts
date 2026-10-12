@@ -7,7 +7,7 @@ export default defineConfig({
         monkey({
             entry: "src/main.ts",
             userscript: {
-                namespace: "https://github.com/e6nlaq/monkey-template",
+                namespace: "https://github.com/e6nlaq/atcoder-nickname",
                 match: ["https://atcoder.jp/*"],
                 name: "AtCoder Nickname",
                 grant: [],
