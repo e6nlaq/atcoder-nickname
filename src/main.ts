@@ -48,8 +48,6 @@ style.textContent = `
         }
 
         .${MARK_CLASS} {
-            display: inline-block;
-            vertical-align: bottom;
             white-space: nowrap;
         }
     `;
