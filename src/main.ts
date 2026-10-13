@@ -40,10 +40,6 @@ style.textContent = `
             display: inline-block;
         }
 
-        .${ICON_CLASS}:hover {
-            opacity: 0.7;
-        }
-
         .${VISUAL_CLASS} {
             max-width: 150px;
             overflow: hidden;
@@ -337,6 +333,50 @@ function findIconTarget(link: HTMLAnchorElement): IconTarget | null {
 }
 
 // ========================================
+// ツールチップ
+// ========================================
+
+// AtCoder のページに読み込まれている jQuery + Bootstrap 3 の tooltip を使う。
+interface JQueryTooltipLike {
+    tooltip(options?: object | string): JQueryTooltipLike;
+}
+
+interface JQueryStaticLike {
+    (element: Element): JQueryTooltipLike;
+    fn?: { tooltip?: unknown };
+}
+
+function getJQuery(): JQueryStaticLike | null {
+    const jq = (window as unknown as { jQuery?: JQueryStaticLike }).jQuery;
+
+    return jq && typeof jq.fn?.tooltip === "function" ? jq : null;
+}
+
+/**
+ * 他の AtCoder のボタンと同じ Bootstrap のツールチップを設定する。
+ * 動的に追加した要素は自動では初期化されないため、ここで明示的に初期化する。
+ * jQuery が使えない場合は、ブラウザ標準の title 属性で代用する。
+ */
+function setupTooltip(element: HTMLElement, text: string): void {
+    const jq = getJQuery();
+
+    if (!jq) {
+        element.title = text;
+
+        return;
+    }
+
+    element.setAttribute("data-toggle", "tooltip");
+    element.setAttribute("data-original-title", text);
+
+    jq(element).tooltip({ container: "body" });
+}
+
+function hideTooltip(element: HTMLElement): void {
+    getJQuery()?.(element).tooltip("hide");
+}
+
+// ========================================
 // 鉛筆アイコンの作成
 // ========================================
 
@@ -357,12 +397,16 @@ function addEditIcon(username: string, target: IconTarget): void {
     editIcon.className = `${ICON_CLASS} glyphicon glyphicon-pencil`;
 
     editIcon.setAttribute("data-user", username);
-    editIcon.title = `${username} のニックネームを編集`;
     editIcon.href = "#";
+
+    setupTooltip(editIcon, `${username}さんのニックネームを編集`);
 
     editIcon.addEventListener("click", (event: MouseEvent) => {
         event.preventDefault();
         event.stopPropagation();
+
+        // prompt 表示中・表示後にツールチップが残らないように閉じる
+        hideTooltip(editIcon);
 
         const existingNickname = nicknames[username] ?? "";
 
