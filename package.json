@@ -16,9 +16,9 @@
     "devDependencies": {
         "@commitlint/cli": "^21.2.3",
         "@commitlint/config-conventional": "^21.2.3",
-        "lefthook": "^2.2.1",
-        "oxfmt": "^0.72.0",
-        "oxlint": "^1.87.0",
+        "lefthook": "^2.2.2",
+        "oxfmt": "^0.73.0",
+        "oxlint": "^1.88.0",
         "typescript": "^7.0.2",
         "vite": "^8.3.4",
         "vite-plugin-monkey": "^8.1.1"
