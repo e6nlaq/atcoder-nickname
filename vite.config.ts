@@ -10,7 +10,7 @@ export default defineConfig({
                 namespace: "https://github.com/e6nlaq/atcoder-nickname",
                 match: ["https://atcoder.jp/*"],
                 name: "AtCoder Nickname",
-                grant: [],
+                grant: "none",
                 author: "e6nlaq",
                 copyright: "(C) 2026 e6nlaq",
             },
